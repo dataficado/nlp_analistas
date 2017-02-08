@@ -1,0 +1,16 @@
+*.csv
+*.json
+*.dict
+*.mm
+*.lda-c
+*.lda
+*.state
+*.lsi
+*.projection
+*.index
+*.tfidf
+*.vocab
+*.npy
+big
+trig
+quad
