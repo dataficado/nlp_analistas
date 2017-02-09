@@ -8,6 +8,7 @@ import os
 import string
 import sys
 import time
+import warnings
 
 from gensim.models import Phrases
 from gensim.models.phrases import Phraser
@@ -69,8 +70,11 @@ def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
     fields = ['score', 'emosents', 'sents']
     s1 = wsets['mejora']
     s2 = wsets['deterioro']
-    results = {}
+    result = {}
     r = []
+
+    corpus = os.path.basename(os.path.dirname(path))
+    doc = os.path.basename(path)
 
     for sent in hp.transform_sents(path, mods, stk, wtk, stp):
         tokens = hp.tokenize_sent(sent, wtk, **kwargs)
@@ -82,13 +86,22 @@ def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
             r.append((score, emosent, 1))
 
     res = [e for e in zip(*r)]
-    for i, f in enumerate(fields):
-        if i == 0:
-            results[f] = np.nanmean(res[i])
-        else:
-            results[f] = np.nansum(res[i])
+    if len(res) == 3:
+        for i, f in enumerate(fields):
+            if i == 0:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    result[f] = np.nanmean(res[i])
+            else:
+                result[f] = np.nansum(res[i])
+    else:
+        for i, f in enumerate(fields):
+            result[f] = np.nan
 
-    return results
+        logstr = '({}, {}) sin score'.format(corpus, doc)
+        logging.info(logstr)
+
+    return result
 
 
 def main():
@@ -96,8 +109,7 @@ def main():
     inicio = time.time()
     hoy = datetime.date.today()
     corrida = "{:%Y-%m-%d}".format(hoy)
-    cmd = sys.argv[1]
-    wdlist = sys.argv[2]
+    wdlist = sys.argv[1]
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'extraction')
@@ -135,16 +147,17 @@ def main():
     #     words = banrep[cat]
     #     stems[cat] = set([stmmr.stem(w) for w in words])
 
-    col_names = ['filepath', 'corpus', 'archivo', 'idioma', 'creacion']
+    col_names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
     procesados = pd.read_csv(os.path.join(dir_input, 'procesados.csv'),
                              header=None,
                              names=col_names,
                              encoding='utf-8',
-                             converters=converter,
-                             parse_dates=['creacion'],
-                             infer_datetime_format=True
-                             )
+                             converters=converter)
+
+    procesados['creacion'] = pd.to_datetime(procesados['creacion'],
+                                            errors='coerce', utc=True,
+                                            infer_datetime_format=True)
 
     n0 = len(procesados.index)
     logging.info('{} docs en archivo'.format(n0))
@@ -154,22 +167,12 @@ def main():
     logging.info('{} docs perdidos por no tener fecha'.format(n0 - n1))
 
     dfs = []
-
-    if cmd == 'all':
-        gcols = ['idioma']
-    else:
-        gcols = ['corpus', 'idioma']
-
+    gcols = ['idioma']
     grouped = procesados.groupby(gcols)
     for grupo, df in grouped:
-        logging.info('{} filas en grupo {}'.format(len(df.index), grupo))
-
-        if cmd == 'all':
-            loadpath = os.path.join(dir_models, grupo)
-        else:
-            loadpath = os.path.join(dir_models, *grupo)
-
+        logging.info('{} docs en grupo {}'.format(len(df.index), grupo))
         paths = df['filepath']
+        loadpath = os.path.join(dir_models, grupo)
 
         if 'es' in grupo:
             mods = {}
@@ -180,9 +183,12 @@ def main():
                 ph_model = Phraser(model)
                 mods[m] = ph_model
 
+            logstr = 'Calculando sentimiento de docs en {}'.format(grupo)
+            logging.info(logstr)
+
             resu = paths.apply(score_doc,
                                args=(banrep, mods, sntt, wdt, punct),
-                               wdlen=3, stops=stops, alphas=False, fltr=5)
+                               wdlen=3, stops=stops, alphas=True, fltr=5)
 
             new = resu.apply(pd.Series)
             resultado = pd.concat([df, new], axis=1)

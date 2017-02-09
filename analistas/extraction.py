@@ -59,12 +59,12 @@ def process_file(filepath, outfile, procfile):
         with open(outfile, "w", encoding='utf-8') as out:
             json.dump(info, out, ensure_ascii=False)
 
-        corpus = os.path.basename(os.path.dirname(filepath))
+        fuente = os.path.basename(os.path.dirname(filepath))
         archivo = os.path.basename(filepath)
 
         with open(procfile, 'a', newline='', encoding='utf-8') as out:
             writer = csv.writer(out, delimiter=',')
-            datos = [outfile, corpus, archivo, idioma, creacion]
+            datos = [outfile, fuente, archivo, idioma, creacion]
             writer.writerow(datos)
 
 

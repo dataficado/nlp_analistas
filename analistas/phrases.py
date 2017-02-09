@@ -4,7 +4,6 @@ import datetime
 import logging
 import os
 import string
-import sys
 import time
 
 from gensim.models import Phrases
@@ -21,7 +20,6 @@ def main():
     inicio = time.time()
     hoy = datetime.date.today()
     corrida = "{:%Y-%m-%d}".format(hoy)
-    cmd = sys.argv[1]
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'extraction')
@@ -44,32 +42,20 @@ def main():
 
     punct = set(string.punctuation)
 
-    col_names = ['filepath', 'corpus', 'archivo', 'idioma', 'creacion']
+    col_names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
     procesados = pd.read_csv(os.path.join(dir_input, 'procesados.csv'),
                              header=None,
                              names=col_names,
                              encoding='utf-8',
-                             converters=converter,
-                             parse_dates=['creacion'],
-                             infer_datetime_format=True
-                             )
+                             converters=converter)
 
-    if cmd == 'all':
-        gcols = ['idioma']
-    else:
-        gcols = ['corpus', 'idioma']
-
+    gcols = ['idioma']
     grouped = procesados.groupby(gcols)
     for grupo, df in grouped:
-        logging.info('{} filas en grupo {}'.format(len(df.index), grupo))
-
-        if cmd == 'all':
-            savepath = os.path.join(dir_output, grupo)
-        else:
-            savepath = os.path.join(dir_output, *grupo)
-
+        logging.info('{} docs en grupo {}'.format(len(df.index), grupo))
         paths = df['filepath']
+        savepath = os.path.join(dir_output, grupo)
 
         if 'es' in grupo:
             os.makedirs(savepath, exist_ok=True)
@@ -78,14 +64,12 @@ def main():
             big = Phrases(corpus)
             bigpath = os.path.join(savepath, 'big')
             big.save(bigpath)
-
             big = Phraser(big)
 
             corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
             trig = Phrases(big[corpus])
             trigpath = os.path.join(savepath, 'trig')
             trig.save(trigpath)
-
             trig = Phraser(trig)
 
             corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
