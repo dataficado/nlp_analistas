@@ -62,6 +62,8 @@ def main():
 
     grouped = procesados.groupby(gcols)
     for grupo, df in grouped:
+        logging.info('{} filas en grupo {}'.format(len(df.index), grupo))
+
         if cmd == 'all':
             savepath = os.path.join(dir_output, grupo)
         else:
@@ -70,7 +72,6 @@ def main():
         paths = df['filepath']
 
         if 'es' in grupo:
-            logging.info('{} filas en grupo {}'.format(len(df.index), grupo))
             os.makedirs(savepath)
 
             corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)

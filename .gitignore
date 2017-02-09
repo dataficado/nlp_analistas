@@ -2,15 +2,13 @@
 *.json
 *.dict
 *.mm
-*.lda-c
-*.lda
+*.index
+*.lda*
 *.state
 *.lsi
 *.projection
-*.index
 *.tfidf
 *.vocab
-*.npy
 big
 trig
 quad
