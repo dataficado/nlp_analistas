@@ -72,7 +72,7 @@ def main():
         paths = df['filepath']
 
         if 'es' in grupo:
-            os.makedirs(savepath)
+            os.makedirs(savepath, exist_ok=True)
 
             corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
             big = Phrases(corpus)
