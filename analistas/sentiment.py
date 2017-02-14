@@ -107,8 +107,8 @@ def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    hoy = datetime.date.today()
-    corrida = "{:%Y-%m-%d}".format(hoy)
+    ahora = datetime.datetime.now()
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
     wdlist = sys.argv[1]
 
     dir_curr = os.path.abspath('.')
@@ -147,13 +147,14 @@ def main():
     #     words = banrep[cat]
     #     stems[cat] = set([stmmr.stem(w) for w in words])
 
-    col_names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
+    names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
-    procesados = pd.read_csv(os.path.join(dir_input, 'procesados.csv'),
-                             header=None,
-                             names=col_names,
-                             encoding='utf-8',
-                             converters=converter)
+
+    refpath = os.path.join(dir_input, 'metadata.csv')
+    if not os.path.isfile(refpath):
+        refpath = os.path.join(dir_input, 'procesados.csv')
+
+    procesados = hp.load_reference(refpath, names, converter)
 
     procesados['creacion'] = pd.to_datetime(procesados['creacion'],
                                             errors='coerce', utc=True,

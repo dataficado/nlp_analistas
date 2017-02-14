@@ -2,6 +2,24 @@
 """Modulo para variables y funciones de uso comun."""
 import json
 
+import pandas as pd
+
+
+def load_reference(refpath, names, converters):
+    """
+    Carga archivo en refpath a DataFrame.
+
+    :param refpath: str
+    :param names: list
+    :param converters: dict
+
+    :return: pd.DataFrame
+    """
+    df = pd.read_csv(refpath, header=None, names=names,
+                     converters=converters, encoding='utf-8')
+
+    return df
+
 
 def extract_text(filepath):
     """

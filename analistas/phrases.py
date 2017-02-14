@@ -10,7 +10,6 @@ from gensim.models import Phrases
 from gensim.models.phrases import Phraser
 from nltk.tokenize import WordPunctTokenizer
 import nltk.data
-import pandas as pd
 
 import helpers as hp
 
@@ -18,8 +17,8 @@ import helpers as hp
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    hoy = datetime.date.today()
-    corrida = "{:%Y-%m-%d}".format(hoy)
+    ahora = datetime.datetime.now()
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'extraction')
@@ -42,13 +41,14 @@ def main():
 
     punct = set(string.punctuation)
 
-    col_names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
+    names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
-    procesados = pd.read_csv(os.path.join(dir_input, 'procesados.csv'),
-                             header=None,
-                             names=col_names,
-                             encoding='utf-8',
-                             converters=converter)
+
+    refpath = os.path.join(dir_input, 'metadata.csv')
+    if not os.path.isfile(refpath):
+        refpath = os.path.join(dir_input, 'procesados.csv')
+
+    procesados = hp.load_reference(refpath, names, converter)
 
     gcols = ['idioma']
     grouped = procesados.groupby(gcols)
