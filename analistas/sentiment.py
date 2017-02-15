@@ -13,6 +13,7 @@ import warnings
 from gensim.models import Phrases
 from gensim.models.phrases import Phraser
 from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
 from nltk.tokenize import WordPunctTokenizer
 import nltk.data
 import numpy as np
@@ -85,8 +86,7 @@ def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
     for sent in hp.transform_sents(path, mods, stk, wtk, stp):
         tokens = hp.tokenize_sent(sent, wtk, **kwargs)
         # tokens = [stmr.stem(wd) for wd in tokens]
-        # para reincluir stemmer :param stmr: SnowballStemmer
-        # e importar from nltk.stem import SnowballStemmer
+
         if tokens:
             score, emosent = score_sentence(tokens, s1, s2)
             r.append((score, emosent, 1))
@@ -137,7 +137,6 @@ def main():
     punkt = os.path.join('tokenizers', 'punkt', 'spanish.pickle')
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
-    # stmmr = SnowballStemmer('spanish')
 
     punct = set(string.punctuation)
     span = set(stopwords.words('spanish'))
@@ -148,10 +147,15 @@ def main():
     with open(wdlist, encoding='utf-8') as infile:
         banrep = json.load(infile, encoding='utf-8')
 
-    # stems = {}
-    # for cat in banrep.keys():
-    #     words = banrep[cat]
-    #     stems[cat] = set([stmmr.stem(w) for w in words])
+    if len(sys.argv) == 3:
+        stmmr = SnowballStemmer('spanish')
+        stems = {}
+        for cat in banrep.keys():
+            words = banrep[cat]
+            stems[cat] = set([stmmr.stem(w) for w in words])
+
+        banrep = stems.copy()
+        logging.info('Usando stems de listas de palabras...')
 
     names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
