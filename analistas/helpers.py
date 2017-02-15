@@ -73,7 +73,7 @@ def tokenize_sent(sentence, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
         stops = [w.lower() for w in stops]
         words = [w for w in words if w not in stops]
     if alphas:
-        words = [w for w in words if w.isalpha()]
+        words = [w for w in words if w.isalpha() or '_' in w]
 
     if not (len(words) > int(fltr)):
         words = []
