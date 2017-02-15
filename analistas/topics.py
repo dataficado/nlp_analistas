@@ -42,8 +42,8 @@ def get_transformed_docwords(path, mods, stk, wtk, stp, **kwargs):
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    hoy = datetime.date.today()
-    corrida = "{:%Y-%m-%d}".format(hoy)
+    ahora = datetime.datetime.now()
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'sentiment')
@@ -65,7 +65,6 @@ def main():
     punkt = os.path.join('tokenizers', 'punkt', 'spanish.pickle')
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
-    # stmmr = SnowballStemmer('spanish')
 
     punct = set(string.punctuation)
     span = set(stopwords.words('spanish'))
