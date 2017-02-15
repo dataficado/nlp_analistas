@@ -33,8 +33,14 @@ def score_sentence(tokens, s1, s2):
     """
     fd = Counter(tokens)
 
-    emo1 = sum([c for w, c in fd.items() if any(s in w.split('_') for s in s1)])
-    emo2 = sum([c for w, c in fd.items() if any(s in w.split('_') for s in s2)])
+    wds1 = [c for w, c in fd.items()
+            if any(x.startswith(s) for x in w.split('_') for s in s1)]
+    emo1 = sum(wds1)
+
+    wds2 = [c for w, c in fd.items()
+            if any(x.startswith(s) for x in w.split('_') for s in s2)]
+    emo2 = sum(wds2)
+
     emosum = emo1 + emo2
 
     emodiff = emo1 - emo2
