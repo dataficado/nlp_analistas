@@ -44,8 +44,14 @@ def main():
     n0 = len(sentimiento.index)
     logging.info('{} docs en archivo'.format(n0))
 
-    t0 = sys.argv[1]
-    t1 = sys.argv[2]
+    cmds = sys.argv
+    nc = len(cmds)
+    if nc == 1:
+        t0, t1 = None, None
+    elif nc == 2:
+        t0, t1 = cmds[1], None
+    else:
+        t0, t1 = cmds[1], cmds[2]
 
     sentimiento = sentimiento[t0:t1]
     n1 = len(sentimiento.index)

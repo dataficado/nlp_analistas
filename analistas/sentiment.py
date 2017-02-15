@@ -148,6 +148,7 @@ def main():
         banrep = json.load(infile, encoding='utf-8')
 
     if len(sys.argv) == 3:
+        logging.info('Usando stems de listas de palabras...')
         stmmr = SnowballStemmer('spanish')
         stems = {}
         for cat in banrep.keys():
@@ -155,7 +156,6 @@ def main():
             stems[cat] = set([stmmr.stem(w) for w in words])
 
         banrep = stems.copy()
-        logging.info('Usando stems de listas de palabras...')
 
     names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
