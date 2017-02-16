@@ -5,12 +5,46 @@ import logging
 import os
 import sys
 
+from gensim import corpora
+from gensim.models.ldamodel import LdaModel
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pyLDAvis
+import pyLDAvis.gensim
 import seaborn as sns
 
 sns.set_context("poster")
+
+
+def topic_data(n, tipo, dirin):
+    """
+    Prepara data para visualizacion de topicos
+
+    :param n: int (numero de topicos)
+    :param tipo: str (label de tipo de sentimiento)
+    :param dirin: str (directorio de entrada)
+
+    :return: PreparedData
+    """
+    strfmt = 'dict-{}.dict'.format(tipo)
+    dictf = os.path.join(dirin, strfmt)
+    dictionary = corpora.Dictionary.load(dictf)
+    logging.info(strfmt, dictionary)
+
+    strfmt = 'bow-{}.mm'.format(tipo)
+    bowmm = os.path.join(dirin, strfmt)
+    bowcorpus = corpora.MmCorpus(bowmm)
+    logging.info(strfmt, bowcorpus)
+
+    strfmt = 'model-{}-{}.lda'.format(n, tipo)
+    ldaf = os.path.join(dirin, strfmt)
+    ldamodel = LdaModel.load(ldaf)
+    logging.info(strfmt, ldamodel)
+
+    data = pyLDAvis.gensim.prepare(ldamodel, bowcorpus, dictionary)
+
+    return data
 
 
 def main():
@@ -19,7 +53,8 @@ def main():
     corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
 
     dir_curr = os.path.abspath('.')
-    dir_input = os.path.join(dir_curr, 'sentiment')
+    dir_sent = os.path.join(dir_curr, 'sentiment')
+    dir_topi = os.path.join(dir_curr, 'topics', 'es')
     dir_output = os.path.join(dir_curr, 'visuals')
     dir_logs = os.path.join(dir_output, 'logs')
     os.makedirs(dir_logs, exist_ok=True)
@@ -34,7 +69,7 @@ def main():
                         filemode='w')
 
     cols = ['filepath', 'creacion', 'emosents', 'score', 'sents']
-    sentimiento = pd.read_csv(os.path.join(dir_input, 'sentiment.csv'),
+    sentimiento = pd.read_csv(os.path.join(dir_sent, 'sentiment.csv'),
                               usecols=cols,
                               encoding='utf-8',
                               index_col='creacion',
@@ -47,11 +82,13 @@ def main():
     cmds = sys.argv
     nc = len(cmds)
     if nc == 1:
-        t0, t1 = None, None
+        t0, t1, tipo = None, None, 'todos'
     elif nc == 2:
-        t0, t1 = cmds[1], None
+        t0, t1, tipo = cmds[1], None, 'todos'
+    elif nc == 3:
+        t0, t1, tipo = cmds[1], cmds[2], 'todos'
     else:
-        t0, t1 = cmds[1], cmds[2]
+        t0, t1, tipo = cmds[1], cmds[2], cmds[3]
 
     sentimiento = sentimiento[t0:t1]
     n1 = len(sentimiento.index)
@@ -73,6 +110,13 @@ def main():
 
     mensual = os.path.join(dir_output, 'mensual.csv')
     df.to_csv(mensual, encoding='utf-8')
+
+    # visualizacion de topicos
+    for n in (10, 25):
+        data = topic_data(n, tipo, dir_topi)
+        strfmt = 'topics-{}-{}.html'.format(n, tipo)
+        html = os.path.join(dir_output, strfmt)
+        pyLDAvis.save_html(data, html)
 
 
 if __name__ == '__main__':
