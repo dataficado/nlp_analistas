@@ -60,19 +60,22 @@ def main():
         if 'es' in grupo:
             os.makedirs(savepath, exist_ok=True)
 
-            corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
+            corpus = hp.get_corpus(paths, sntt, wdt,
+                                   wdlen=0, stops=punct, alphas=True, fltr=5)
             big = Phrases(corpus)
             bigpath = os.path.join(savepath, 'big')
             big.save(bigpath)
             big = Phraser(big)
 
-            corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
+            corpus = hp.get_corpus(paths, sntt, wdt,
+                                   wdlen=0, stops=punct, alphas=True, fltr=5)
             trig = Phrases(big[corpus])
             trigpath = os.path.join(savepath, 'trig')
             trig.save(trigpath)
             trig = Phraser(trig)
 
-            corpus = hp.get_corpus(paths, sntt, wdt, stops=punct)
+            corpus = hp.get_corpus(paths, sntt, wdt,
+                                   wdlen=0, stops=punct, alphas=True, fltr=5)
             quad = Phrases(trig[big[corpus]])
             quadpath = os.path.join(savepath, 'quad')
             quad.save(quadpath)

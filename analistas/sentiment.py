@@ -58,35 +58,38 @@ def score_sentence(tokens, s1, s2):
         emosent = 0
         logging.info('ERROR inesperado calculando sentimiento: {}'.format(e))
 
+    assert ((-2 <= score <= 2) or score is np.nan)
+
     return score, emosent
 
 
-def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
+def score_doc(path, ws, mo, sntt, wdt, stp, **kwargs):
     """
     Calcula sentimiento de documento en path.
 
     :param path: str
-    :param wsets: dict
-    :param mods: dict
-    :param stk: Tokenizer
-    :param wtk: WordPunctTokenizer
+    :param ws: dict
+    :param mo: dict
+    :param sntt: Tokenizer
+    :param wdt: WordPunctTokenizer
     :param stp: set
 
     :yield: tuple
     """
     fields = ['score', 'emosents', 'sents']
-    s1 = wsets['mejora']
-    s2 = wsets['deterioro']
+    s1 = ws['mejora']
+    s2 = ws['deterioro']
     result = {}
     r = []
 
     corpus = os.path.basename(os.path.dirname(path))
     doc = os.path.basename(path)
 
-    for sent in hp.transform_sents(path, mods, stk, wtk, stp):
-        tokens = hp.tokenize_sent(sent, wtk, **kwargs)
-        # tokens = [stmr.stem(wd) for wd in tokens]
+    # params de transf_sents deben ser iguales a lo usado en phrases
+    for sent in hp.transf_sents(mo, path, sntt, wdt,
+                                wdlen=0, stops=stp, alphas=True, fltr=5):
 
+        tokens = hp.tokenize_sent(sent, wdt, **kwargs)
         if tokens:
             score, emosent = score_sentence(tokens, s1, s2)
             r.append((score, emosent, 1))
@@ -98,6 +101,8 @@ def score_doc(path, wsets, mods, stk, wtk, stp, **kwargs):
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     result[f] = np.nanmean(res[i])
+
+                    assert (result[f] <= 2 or type(result[f]) == np.float64)
             else:
                 result[f] = np.nansum(res[i])
     else:

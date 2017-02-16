@@ -118,23 +118,25 @@ def get_corpus(paths, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
         yield from get_doc(path, sntt, wdt, wdlen, stops, alphas, fltr)
 
 
-def transform_sents(fpath, mods, stk, wtk, stp):
+def transf_sents(mo, path, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
     """
     Transforma cada frase de un documento usando modelos de collocation.
 
-    :param fpath: str
-    :param mods: dict
-    :param stk: Tokenizer
-    :param wtk: WordPunctTokenizer
-    :param stp: set
+    :param mo: dict
+    :param path: str
+    :param sntt: Tokenizer
+    :param wdt: WordPunctTokenizer
+    :param wdlen: int
+    :param stops: set
+    :param alphas: Boolean
+    :param fltr: int
 
     :yield: str (frase)
     """
-    big = mods['big']
-    trig = mods['trig']
-    quad = mods['quad']
-    sents = get_doc(fpath, stk, wtk, stops=stp)
+    big = mo['big']
+    trig = mo['trig']
+    quad = mo['quad']
+    sents = get_doc(path, sntt, wdt, wdlen, stops, alphas, fltr)
     transformed = quad[trig[big[sents]]]
     for sent in transformed:
         yield ' '.join(sent)
-

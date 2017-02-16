@@ -14,26 +14,31 @@ from gensim.models.phrases import Phraser
 from nltk.corpus import stopwords
 from nltk.tokenize import WordPunctTokenizer
 import nltk.data
+import numpy as np
 import pandas as pd
 
 import helpers as hp
 
 
-def get_transformed_docwords(path, mods, stk, wtk, stp, **kwargs):
+def get_transformed_docwords(path, mo, sntt, wdt, stp, **kwargs):
     """
     Transforma documento en path en BOW.
 
     :param path: str
-    :param mods: dict
-    :param stk: Tokenizer
-    :param wtk: WordPunctTokenizer
+    :param mo: dict
+    :param sntt: Tokenizer
+    :param wdt: WordPunctTokenizer
     :param stp: set
 
     :yield: list of str (palabras de un documento)
     """
     tokens = []
-    for sent in hp.transform_sents(path, mods, stk, wtk, stp):
-        words = hp.tokenize_sent(sent, wtk, **kwargs)
+
+    # params de transf_sents deben ser iguales a lo usado en phrases
+    for sent in hp.transf_sents(mo, path, sntt, wdt,
+                                wdlen=0, stops=stp, alphas=True, fltr=5):
+
+        words = hp.tokenize_sent(sent, wdt, **kwargs)
         tokens.extend(words)
 
     return tokens
@@ -84,19 +89,30 @@ def main():
     cmds = sys.argv
     nc = len(cmds)
     if nc == 1:
-        t0, t1 = None, None
+        t0, t1, tipo = None, None, 'todos'
     elif nc == 2:
-        t0, t1 = cmds[1], None
+        t0, t1, tipo = cmds[1], None, 'todos'
+    elif nc == 3:
+        t0, t1, tipo = cmds[1], cmds[2], 'todos'
     else:
-        t0, t1 = cmds[1], cmds[2]
+        t0, t1, tipo = cmds[1], cmds[2], cmds[3]
 
     sentimiento = sentimiento[t0:t1]
     n1 = len(sentimiento.index)
     logging.info('{} docs fuera de periodo'.format(n0 - n1))
     logging.info('{} docs dentro de periodo'.format(n1))
 
-    # tipo = np.where(df['score'] > 0, 'mejora', 'deterioro')
-    # aca falta
+    if nc == 4:
+        sentimiento['tipo'] = np.where(sentimiento['score'] > 0, 'mejora',
+                                       np.where(sentimiento['score'] < 0,
+                                                'deterioro', 'neutral'))
+
+        masktipo = sentimiento['tipo'] == tipo
+        sentimiento = sentimiento[masktipo]
+
+        n2 = len(sentimiento.index)
+        logging.info('Se descartan {} docs no tipo {}'.format((n1 - n2), tipo))
+        logging.info('Se mantienen {} docs tipo {}'.format(n2, tipo))
 
     gcols = ['idioma']
     grouped = sentimiento.groupby(gcols)
@@ -124,11 +140,11 @@ def main():
             unids = [tokid for tokid, freq in diction.dfs.items() if freq == 1]
             diction.filter_tokens(unids)  # remove words that appear only once
             diction.compactify()
-            dictpath = os.path.join(savepath, 'dict.dict')
+            dictpath = os.path.join(savepath, 'dict-{}.dict'.format(tipo))
             diction.save(dictpath)
 
             bow = [diction.doc2bow(toks) for toks in docwords]
-            bowmm = os.path.join(savepath, 'bow.mm')
+            bowmm = os.path.join(savepath, 'bow-{}.mm'.format(tipo))
             corpora.MmCorpus.serialize(bowmm, bow)
 
             #  LDA transformations
@@ -136,7 +152,8 @@ def main():
             params = dict(id2word=diction, update_every=0, passes=10)
             for n in (10, 25):
                 lda = LdaModel(bow, num_topics=n, **params)
-                ldapath = os.path.join(savepath, 'model-{}.lda'.format(n))
+                ldapath = os.path.join(savepath,
+                                       'model-{}-{}.lda'.format(n, tipo))
                 lda.save(ldapath)
 
     fin = time.time()
