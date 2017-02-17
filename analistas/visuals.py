@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pyLDAvis
-import pyLDAvis.gensim
+import pyLDAvis.gensim as gvis
 import seaborn as sns
 
 sns.set_context("poster")
@@ -27,22 +27,18 @@ def topic_data(n, tipo, dirin):
 
     :return: PreparedData
     """
-    strfmt = 'dict-{}.dict'.format(tipo)
-    dictf = os.path.join(dirin, strfmt)
+    dictf = os.path.join(dirin, 'dict-{}.dict'.format(tipo))
     dictionary = corpora.Dictionary.load(dictf)
-    logging.info(strfmt, dictionary)
+    strfmt = 'Diccionario con {} tokens cargado'.format(len(dictionary.keys()))
+    logging.info(strfmt)
 
-    strfmt = 'bow-{}.mm'.format(tipo)
-    bowmm = os.path.join(dirin, strfmt)
+    bowmm = os.path.join(dirin, 'bow-{}.mm'.format(tipo))
     bowcorpus = corpora.MmCorpus(bowmm)
-    logging.info(strfmt, bowcorpus)
 
-    strfmt = 'model-{}-{}.lda'.format(n, tipo)
-    ldaf = os.path.join(dirin, strfmt)
+    ldaf = os.path.join(dirin, 'model-{}-{}.lda'.format(n, tipo))
     ldamodel = LdaModel.load(ldaf)
-    logging.info(strfmt, ldamodel)
 
-    data = pyLDAvis.gensim.prepare(ldamodel, bowcorpus, dictionary)
+    data = gvis.prepare(ldamodel, bowcorpus, dictionary, mds='tsne')
 
     return data
 
