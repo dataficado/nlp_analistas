@@ -87,7 +87,7 @@ def score_doc(path, ws, mo, sntt, wdt, stp, **kwargs):
 
     # params de transform deben ser iguales a lo usado en phrases
     for sent in hp.transform(mo, path, sntt, wdt,
-                             wdlen=0, stops=stp, alphas=True, fltr=5):
+                             wdlen=2, stops=stp, alphas=True, fltr=5):
 
         tokens = hp.tokenize_sent(sent, wdt, **kwargs)
         if tokens:
