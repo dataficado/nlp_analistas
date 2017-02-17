@@ -34,9 +34,9 @@ def get_transformed_docwords(path, mo, sntt, wdt, stp, **kwargs):
     """
     tokens = []
 
-    # params de transf_sents deben ser iguales a lo usado en phrases
-    for sent in hp.transf_sents(mo, path, sntt, wdt,
-                                wdlen=0, stops=stp, alphas=True, fltr=5):
+    # params de transform deben ser iguales a lo usado en phrases
+    for sent in hp.transform(mo, path, sntt, wdt,
+                             wdlen=0, stops=stp, alphas=True, fltr=5):
 
         words = hp.tokenize_sent(sent, wdt, **kwargs)
         tokens.extend(words)
