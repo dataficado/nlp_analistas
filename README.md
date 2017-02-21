@@ -4,6 +4,8 @@
 Contiene principalmente:
 
 * extraction.py - Codigo para extraer texto de archivos binarios
+* helpers.py - Codigo para funciones y variables de uso comun
+* phrases.py - Codigo para crear tokens basado en collocations
 * sentiment.py - Codigo para calculo de Indicador de Sentimiento
 * topics.py - Codigo para transformacion de corpus a Topicos
 * visuals.py - Codigo para visualizaciones
