@@ -38,7 +38,7 @@ def topic_data(n, tipo, dirin):
     ldaf = os.path.join(dirin, 'model-{}-{}.lda'.format(n, tipo))
     ldamodel = LdaModel.load(ldaf)
 
-    data = gvis.prepare(ldamodel, bowcorpus, dictionary, mds='tsne')
+    data = gvis.prepare(ldamodel, bowcorpus, dictionary)
 
     return data
 

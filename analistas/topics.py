@@ -20,7 +20,7 @@ import pandas as pd
 import helpers as hp
 
 
-def get_transformed_docwords(path, mo, sntt, wdt, stp, **kwargs):
+def all_phrased_words(path, mo, sntt, wdt, stp, **kwargs):
     """
     Transforma documento en path en BOW.
 
@@ -34,9 +34,10 @@ def get_transformed_docwords(path, mo, sntt, wdt, stp, **kwargs):
     """
     tokens = []
 
-    # params de transform deben ser iguales a lo usado en phrases
-    for sent in hp.transform(mo, path, sntt, wdt,
-                             wdlen=2, stops=stp, alphas=True, fltr=5):
+    # params de get_phrased_sents deben ser iguales a lo usado en phrases
+    for sent in hp.get_phrased_sents(mo, path, sntt, wdt,
+                                     trim=0.1, wdlen=2, stops=stp,
+                                     alphas=True, fltr=5):
 
         words = hp.tokenize_sent(sent, wdt, **kwargs)
         tokens.extend(words)
@@ -114,8 +115,7 @@ def main():
         logging.info('Se descartan {} docs no tipo {}'.format((n1 - n2), tipo))
         logging.info('Se mantienen {} docs tipo {}'.format(n2, tipo))
 
-    gcols = ['idioma']
-    grouped = sentimiento.groupby(gcols)
+    grouped = sentimiento.groupby(['idioma'])
     for grupo, df in grouped:
         logging.info('{} docs en grupo {}'.format(len(df.index), grupo))
         paths = df['filepath']
@@ -132,7 +132,7 @@ def main():
                 ph_model = Phraser(model)
                 mods[m] = ph_model
 
-            docwords = paths.apply(get_transformed_docwords,
+            docwords = paths.apply(all_phrased_words,
                                    args=(mods, sntt, wdt, punct),
                                    wdlen=3, stops=stops, alphas=True, fltr=5)
 

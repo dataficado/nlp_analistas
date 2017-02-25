@@ -23,30 +23,29 @@ def parse_with_tika(filepath, server='http://localhost:9998'):
 
     :return: dict ('contenido'(str), 'metadata'(dict), 'idioma'(str))
     """
-    info = {}
     parsed = parser.from_file(filepath, server)
     contenido = parsed.get('content')
     metadata = parsed.get('metadata')
     idioma = language.from_buffer(contenido)
 
-    info['contenido'] = contenido
-    info['metadata'] = metadata
-    info['idioma'] = idioma
-
-    return info
+    return dict(contenido=contenido, metadata=metadata, idioma=idioma)
 
 
-def process_file(filepath, outfile, procfile):
+def process_file(filepath, outpath, procfile):
     """
     Hacer parsing de archivo en filepath, guardando resultado en outfile.
 
     :param filepath: str
-    :param outfile: str
+    :param outpath: str
     :param procfile: str
 
     :return: None
     """
-    info = parse_with_tika(filepath)
+    try:
+        info = parse_with_tika(filepath)
+    except Exception as e:
+        logging.info('Imposible extraer info de {} : {}'.format(filepath, e))
+        info = {}
 
     if info:
         idioma = info.get('idioma')
@@ -56,15 +55,12 @@ def process_file(filepath, outfile, procfile):
         else:
             creacion = ''
 
-        with open(outfile, "w", encoding='utf-8') as out:
+        with open(outpath, "w", encoding='utf-8') as out:
             json.dump(info, out, ensure_ascii=False)
-
-        fuente = os.path.basename(os.path.dirname(filepath))
-        archivo = os.path.basename(filepath)
 
         with open(procfile, 'a', newline='', encoding='utf-8') as out:
             writer = csv.writer(out, delimiter=',')
-            datos = [outfile, fuente, archivo, idioma, creacion]
+            datos = [filepath, outpath, idioma, creacion]
             writer.writerow(datos)
 
 
@@ -107,19 +103,29 @@ def main():
         for filename in filenames:
             if filename.lower().endswith(formatos):
                 filepath = os.path.join(dirpath, filename)
-                decofile = unidecode(filename)
-                newpath = os.path.join(dirpath, decofile)
-                os.replace(filepath, newpath)
-                nombre = decofile.rsplit('.', maxsplit=1)[0]
+                nombre = filename.rsplit('.', maxsplit=1)[0]
+
+                if not all(ord(char) < 128 for char in filename):
+                    deconame = unidecode(filename)
+                    os.replace(os.path.join(dirpath, filename),
+                               os.path.join(dirpath, deconame))
+                    filepath = os.path.join(dirpath, deconame)
+                    nombre = deconame.rsplit('.', maxsplit=1)[0]
+
+                    logstr = '{} cambia a {}'.format(filename, deconame)
+                    logging.info(logstr)
+
                 outfile = os.path.join(savepath, nombre + '.json')
                 presente = os.path.isfile(outfile)
+
                 if not presente:
                     try:
-                        process_file(newpath, outfile, procfile)
+                        process_file(filepath, outfile, procfile)
                         bien += 1
                     except Exception as e:
                         mal += 1
-                        logging.info('{f}: {e}'.format(f=filename, e=e))
+                        logstr = 'Nada guardado para {}:{}'.format(filename, e)
+                        logging.info(logstr)
 
     fin = time.time()
     secs = fin - inicio

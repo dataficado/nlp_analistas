@@ -1,6 +1,8 @@
 # coding: utf-8
 """Modulo para variables y funciones de uso comun."""
 import json
+import logging
+import re
 
 import pandas as pd
 
@@ -33,10 +35,31 @@ def extract_text(filepath):
         try:
             info = json.load(infile, encoding='utf-8')
         except Exception as e:
-            print('Error en {f}: {e}'.format(f=filepath, e=e))
+            logging.info('Error cargando {}: {}'.format(filepath, e))
             info = {}
 
-    text = info.get('contenido')
+    return info.get('contenido')
+
+
+def preprocess_text(text, trim=None):
+    """
+    Preprocesamiento de text.
+
+    :param text: str
+    :param trim: float
+
+    :yield: str
+    """
+    text = re.sub(r'-\n+', '', text)  # para hyphenation final de linea
+    text = ' '.join(text.split())  # eliminar multiples espacios
+
+    # Quitar porcentaje de palabras de inicio y final
+    if trim:
+        toks = text.split()
+        size = len(toks)
+        i0 = int(size * trim)
+        i1 = int(size * (1 - trim))
+        text = ' '.join(toks[i0:i1])
 
     return text
 
@@ -50,8 +73,8 @@ def get_sentences(text, sntt):
 
     :yield: str
     """
-    sentences = sntt.tokenize(text)
-    yield from sentences
+    for sentence in sntt.tokenize(text):
+        yield sentence
 
 
 def tokenize_sent(sentence, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
@@ -73,8 +96,9 @@ def tokenize_sent(sentence, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
         stops = [w.lower() for w in stops]
         words = [w for w in words if w not in stops]
     if alphas:
-        words = [w for w in words if w.isalpha()
-                 or ('_' in w and not any(c.isdigit() for c in w))]
+        words = [w for w in words
+                 if w.isalpha() or
+                 ('_' in w and not any(c.isdigit() for c in w))]
 
     if not (len(words) > int(fltr)):
         words = []
@@ -82,44 +106,41 @@ def tokenize_sent(sentence, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
     return words
 
 
-def get_doc(path, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
+def get_docwords(path, sntt, wdt, trim=None, **kwargs):
     """
     Saca cada frase de un documento.
 
     :param path: str
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    :param wdlen: int
-    :param stops: set
-    :param alphas: Boolean
-    :param fltr: int
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
 
     :yield: list of str (palabras de una frase)
     """
     text = extract_text(path)
+    text = preprocess_text(text, trim)
     for sentence in get_sentences(text, sntt):
-        yield tokenize_sent(sentence, wdt, wdlen, stops, alphas, fltr)
+        yield tokenize_sent(sentence, wdt, **kwargs)
 
 
-def get_corpus(paths, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
+def get_corpus(paths, sntt, wdt, **kwargs):
     """
     Saca cada frase de cada documento en filepaths.
 
     :param paths: Series
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    :param wdlen: int
-    :param stops: set
-    :param alphas: Boolean
-    :param fltr: int
+    **kwargs: (trim, wdlen, stops, alphas, fltr)
 
     :yield: list of str (palabras de una frase)
     """
     for path in paths:
-        yield from get_doc(path, sntt, wdt, wdlen, stops, alphas, fltr)
+        for words in get_docwords(path, sntt, wdt, **kwargs):
+            yield words
 
 
-def transform(mo, path, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
+def get_phrased_sents(mo, path, sntt, wdt, **kwargs):
     """
     Transforma cada frase de un documento usando modelos de collocation.
 
@@ -127,17 +148,14 @@ def transform(mo, path, sntt, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
     :param path: str
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    :param wdlen: int
-    :param stops: set
-    :param alphas: Boolean
-    :param fltr: int
+    **kwargs: (trim, wdlen, stops, alphas, fltr)
 
     :yield: str (frase)
     """
     big = mo['big']
     trig = mo['trig']
     quad = mo['quad']
-    sents = get_doc(path, sntt, wdt, wdlen, stops, alphas, fltr)
+    sents = get_docwords(path, sntt, wdt, **kwargs)
     transformed = quad[trig[big[sents]]]
     for sent in transformed:
         yield ' '.join(sent)

@@ -5,13 +5,10 @@ import datetime
 import json
 import logging
 import os
-import string
 import sys
 import time
 import warnings
 
-from gensim.models import Phrases
-from gensim.models.phrases import Phraser
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from nltk.tokenize import WordPunctTokenizer
@@ -34,16 +31,13 @@ def score_sentence(tokens, s1, s2):
     """
     fd = Counter(tokens)
 
-    wds1 = [c for w, c in fd.items()
-            if any(x.startswith(s) for x in w.split('_') for s in s1)]
+    wds1 = [c for w, c in fd.items() if any(w.startswith(s) for s in s1)]
     emo1 = sum(wds1)
 
-    wds2 = [c for w, c in fd.items()
-            if any(x.startswith(s) for x in w.split('_') for s in s2)]
+    wds2 = [c for w, c in fd.items() if any(w.startswith(s) for s in s2)]
     emo2 = sum(wds2)
 
     emosum = emo1 + emo2
-
     emodiff = emo1 - emo2
     emoavg = emosum / 2
 
@@ -63,33 +57,26 @@ def score_sentence(tokens, s1, s2):
     return score, emosent
 
 
-def score_doc(path, ws, mo, sntt, wdt, stp, **kwargs):
+def score_doc(path, ws, sntt, wdt, **kwargs):
     """
     Calcula sentimiento de documento en path.
 
     :param path: str
     :param ws: dict
-    :param mo: dict
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    :param stp: set
+    **kwargs: (trim, wdlen, stops, alphas, fltr)
 
     :yield: tuple
     """
     fields = ['score', 'emosents', 'sents']
     s1 = ws['mejora']
     s2 = ws['deterioro']
+
     result = {}
     r = []
 
-    corpus = os.path.basename(os.path.dirname(path))
-    doc = os.path.basename(path)
-
-    # params de transform deben ser iguales a lo usado en phrases
-    for sent in hp.transform(mo, path, sntt, wdt,
-                             wdlen=2, stops=stp, alphas=True, fltr=5):
-
-        tokens = hp.tokenize_sent(sent, wdt, **kwargs)
+    for tokens in hp.get_docwords(path, sntt, wdt, **kwargs):
         if tokens:
             score, emosent = score_sentence(tokens, s1, s2)
             r.append((score, emosent, 1))
@@ -105,11 +92,13 @@ def score_doc(path, ws, mo, sntt, wdt, stp, **kwargs):
                     assert (result[f] <= 2 or type(result[f]) == np.float64)
             else:
                 result[f] = np.nansum(res[i])
+
     else:
+
         for i, f in enumerate(fields):
             result[f] = np.nan
 
-        logstr = '({}, {}) sin score'.format(corpus, doc)
+        logstr = 'Sin score: {}'.format(path)
         logging.info(logstr)
 
     return result
@@ -128,8 +117,6 @@ def main():
     dir_logs = os.path.join(dir_output, 'logs')
     os.makedirs(dir_logs, exist_ok=True)
 
-    dir_models = os.path.join(dir_curr, 'phrases')
-
     logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
@@ -143,10 +130,8 @@ def main():
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
 
-    punct = set(string.punctuation)
-    span = set(stopwords.words('spanish'))
-
     custom = set(l.strip() for l in open('custom.txt', encoding='utf-8'))
+    span = set(stopwords.words('spanish'))
     stops = span.union(custom)
 
     with open(wdlist, encoding='utf-8') as infile:
@@ -162,7 +147,7 @@ def main():
 
         banrep = stems.copy()
 
-    names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
+    names = ['origen', 'filepath', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
 
     refpath = os.path.join(dir_input, 'metadata.csv')
@@ -170,7 +155,6 @@ def main():
         refpath = os.path.join(dir_input, 'procesados.csv')
 
     procesados = hp.load_reference(refpath, names, converter)
-
     procesados['creacion'] = pd.to_datetime(procesados['creacion'],
                                             errors='coerce', utc=True,
                                             infer_datetime_format=True)
@@ -183,28 +167,18 @@ def main():
     logging.info('{} docs perdidos por no tener fecha'.format(n0 - n1))
 
     dfs = []
-    gcols = ['idioma']
-    grouped = procesados.groupby(gcols)
+    grouped = procesados.groupby(['idioma'])
     for grupo, df in grouped:
         logging.info('{} docs en grupo {}'.format(len(df.index), grupo))
         paths = df['filepath']
-        loadpath = os.path.join(dir_models, grupo)
 
         if 'es' in grupo:
-            mods = {}
-
-            for m in ['big', 'trig', 'quad']:
-                modelpath = os.path.join(loadpath, m)
-                model = Phrases().load(modelpath)
-                ph_model = Phraser(model)
-                mods[m] = ph_model
-
             logstr = 'Calculando sentimiento de docs en {}'.format(grupo)
             logging.info(logstr)
 
-            resu = paths.apply(score_doc,
-                               args=(banrep, mods, sntt, wdt, punct),
-                               wdlen=3, stops=stops, alphas=True, fltr=5)
+            resu = paths.apply(score_doc, args=(banrep, sntt, wdt),
+                               trim=0.1, wdlen=3,
+                               stops=stops, alphas=True, fltr=5)
 
             new = resu.apply(pd.Series)
             resultado = pd.concat([df, new], axis=1)

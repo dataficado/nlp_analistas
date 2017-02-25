@@ -41,7 +41,7 @@ def main():
 
     punct = set(string.punctuation)
 
-    names = ['filepath', 'fuente', 'archivo', 'idioma', 'creacion']
+    names = ['origen', 'filepath', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
 
     refpath = os.path.join(dir_input, 'metadata.csv')
@@ -50,8 +50,7 @@ def main():
 
     procesados = hp.load_reference(refpath, names, converter)
 
-    gcols = ['idioma']
-    grouped = procesados.groupby(gcols)
+    grouped = procesados.groupby(['idioma'])
     for grupo, df in grouped:
         logging.info('{} docs en grupo {}'.format(len(df.index), grupo))
         paths = df['filepath']
@@ -61,21 +60,27 @@ def main():
             os.makedirs(savepath, exist_ok=True)
 
             corpus = hp.get_corpus(paths, sntt, wdt,
-                                   wdlen=2, stops=punct, alphas=True, fltr=5)
+                                   trim=0.1, wdlen=2,
+                                   stops=punct, alphas=True, fltr=5)
+
             big = Phrases(corpus)
             bigpath = os.path.join(savepath, 'big')
             big.save(bigpath)
             big = Phraser(big)
 
             corpus = hp.get_corpus(paths, sntt, wdt,
-                                   wdlen=2, stops=punct, alphas=True, fltr=5)
+                                   trim=0.1, wdlen=2,
+                                   stops=punct, alphas=True, fltr=5)
+
             trig = Phrases(big[corpus])
             trigpath = os.path.join(savepath, 'trig')
             trig.save(trigpath)
             trig = Phraser(trig)
 
             corpus = hp.get_corpus(paths, sntt, wdt,
-                                   wdlen=2, stops=punct, alphas=True, fltr=5)
+                                   trim=0.1, wdlen=2,
+                                   stops=punct, alphas=True, fltr=5)
+
             quad = Phrases(trig[big[corpus]])
             quadpath = os.path.join(savepath, 'quad')
             quad.save(quadpath)
