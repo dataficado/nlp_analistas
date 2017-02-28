@@ -20,7 +20,7 @@ import pandas as pd
 import helpers as hp
 
 
-def all_phrased_words(path, mo, sntt, wdt, stp, **kwargs):
+def all_phrased_words(path, mo, sntt, wdt, trim=None, **kwargs):
     """
     Transforma documento en path en BOW.
 
@@ -28,17 +28,16 @@ def all_phrased_words(path, mo, sntt, wdt, stp, **kwargs):
     :param mo: dict
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    :param stp: set
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
 
     :yield: list of str (palabras de un documento)
     """
     tokens = []
 
     # params de get_phrased_sents deben ser iguales a lo usado en phrases
-    for sent in hp.get_phrased_sents(mo, path, sntt, wdt,
-                                     trim=0.1, wdlen=2, stops=stp,
-                                     alphas=True, fltr=5):
-
+    # incluir si se quiere algo diferente a los kwargs de tokenize_sent
+    for sent in hp.get_phrased_sents(mo, path, sntt, wdt, trim, **kwargs):
         words = hp.tokenize_sent(sent, wdt, **kwargs)
         tokens.extend(words)
 
@@ -48,8 +47,7 @@ def all_phrased_words(path, mo, sntt, wdt, stp, **kwargs):
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    ahora = datetime.datetime.now()
-    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(datetime.datetime.now())
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'sentiment')
@@ -62,27 +60,21 @@ def main():
     logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(format=log_format,
-                        datefmt=log_datefmt,
-                        level=logging.INFO,
-                        filename=logfile,
-                        filemode='w')
+    logging.basicConfig(format=log_format, datefmt=log_datefmt,
+                        level=logging.INFO, filename=logfile, filemode='w')
 
     punkt = os.path.join('tokenizers', 'punkt', 'spanish.pickle')
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
 
     punct = set(string.punctuation)
-    span = set(stopwords.words('spanish'))
-
     custom = set(l.strip() for l in open('custom.txt', encoding='utf-8'))
-    stops = span.union(custom)
+    span = set(stopwords.words('spanish'))
+    stops = span.union(custom).union(punct)
 
     sentimiento = pd.read_csv(os.path.join(dir_input, 'sentiment.csv'),
-                              encoding='utf-8',
-                              index_col='creacion',
-                              parse_dates=True,
-                              infer_datetime_format=True)
+                              encoding='utf-8', index_col='creacion',
+                              parse_dates=True, infer_datetime_format=True)
 
     n0 = len(sentimiento.index)
     logging.info('{} docs en archivo'.format(n0))
@@ -126,14 +118,14 @@ def main():
             os.makedirs(savepath, exist_ok=True)
             mods = {}
 
-            for m in ['big', 'trig', 'quad']:
+            for m in ['big', 'trig']:
                 modelpath = os.path.join(loadpath, m)
                 model = Phrases().load(modelpath)
                 ph_model = Phraser(model)
                 mods[m] = ph_model
 
             docwords = paths.apply(all_phrased_words,
-                                   args=(mods, sntt, wdt, punct),
+                                   args=(mods, sntt, wdt, 0.1),
                                    wdlen=3, stops=stops, alphas=True, fltr=5)
 
             diction = corpora.Dictionary(toks for toks in docwords)
@@ -150,7 +142,7 @@ def main():
             #  LDA transformations
             #  10 passes, no online updates, and n topics
             params = dict(id2word=diction, update_every=0, passes=10)
-            for n in (10, 25):
+            for n in (5, 10, 20, 40):
                 lda = LdaModel(bow, num_topics=n, **params)
                 ldapath = os.path.join(savepath,
                                        'model-{}-{}.lda'.format(n, tipo))

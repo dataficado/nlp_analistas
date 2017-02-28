@@ -8,8 +8,10 @@ import time
 
 from gensim.models import Phrases
 from gensim.models.phrases import Phraser
+from nltk.corpus import stopwords
 from nltk.tokenize import WordPunctTokenizer
 import nltk.data
+import pandas as pd
 
 import helpers as hp
 
@@ -17,8 +19,7 @@ import helpers as hp
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    ahora = datetime.datetime.now()
-    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(datetime.datetime.now())
 
     dir_curr = os.path.abspath('.')
     dir_input = os.path.join(dir_curr, 'extraction')
@@ -29,17 +30,17 @@ def main():
     logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(format=log_format,
-                        datefmt=log_datefmt,
-                        level=logging.INFO,
-                        filename=logfile,
-                        filemode='w')
+    logging.basicConfig(format=log_format, datefmt=log_datefmt,
+                        level=logging.INFO, filename=logfile, filemode='w')
 
     punkt = os.path.join('tokenizers', 'punkt', 'spanish.pickle')
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
 
     punct = set(string.punctuation)
+    custom = set(l.strip() for l in open('custom.txt', encoding='utf-8'))
+    span = set(stopwords.words('spanish'))
+    stops = span.union(custom).union(punct)
 
     names = ['origen', 'filepath', 'idioma', 'creacion']
     converter = dict(idioma=lambda x: 'es' if x == 'es' else 'other')
@@ -48,7 +49,8 @@ def main():
     if not os.path.isfile(refpath):
         refpath = os.path.join(dir_input, 'procesados.csv')
 
-    procesados = hp.load_reference(refpath, names, converter)
+    procesados = pd.read_csv(refpath, header=None, names=names,
+                             converters=converter, encoding='utf-8')
 
     grouped = procesados.groupby(['idioma'])
     for grupo, df in grouped:
@@ -59,27 +61,24 @@ def main():
         if 'es' in grupo:
             os.makedirs(savepath, exist_ok=True)
 
-            corpus = hp.get_corpus(paths, sntt, wdt,
-                                   trim=0.1, wdlen=2,
-                                   stops=punct, alphas=True, fltr=5)
+            corpus = hp.get_corpus(paths, sntt, wdt, trim=0.1,
+                                   wdlen=3, stops=stops, alphas=True, fltr=5)
 
             big = Phrases(corpus)
             bigpath = os.path.join(savepath, 'big')
             big.save(bigpath)
             big = Phraser(big)
 
-            corpus = hp.get_corpus(paths, sntt, wdt,
-                                   trim=0.1, wdlen=2,
-                                   stops=punct, alphas=True, fltr=5)
+            corpus = hp.get_corpus(paths, sntt, wdt, trim=0.1,
+                                   wdlen=3, stops=stops, alphas=True, fltr=5)
 
             trig = Phrases(big[corpus])
             trigpath = os.path.join(savepath, 'trig')
             trig.save(trigpath)
             trig = Phraser(trig)
 
-            corpus = hp.get_corpus(paths, sntt, wdt,
-                                   trim=0.1, wdlen=2,
-                                   stops=punct, alphas=True, fltr=5)
+            corpus = hp.get_corpus(paths, sntt, wdt, trim=0.1,
+                                   wdlen=3, stops=stops, alphas=True, fltr=5)
 
             quad = Phrases(trig[big[corpus]])
             quadpath = os.path.join(savepath, 'quad')

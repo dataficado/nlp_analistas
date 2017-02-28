@@ -82,11 +82,8 @@ def main():
     logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(format=log_format,
-                        datefmt=log_datefmt,
-                        level=logging.INFO,
-                        filename=logfile,
-                        filemode='w')
+    logging.basicConfig(format=log_format, datefmt=log_datefmt,
+                        level=logging.INFO, filename=logfile, filemode='w')
 
     bien = 0
     mal = 0

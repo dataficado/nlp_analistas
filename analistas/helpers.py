@@ -4,24 +4,6 @@ import json
 import logging
 import re
 
-import pandas as pd
-
-
-def load_reference(refpath, names, converters):
-    """
-    Carga archivo en refpath a DataFrame.
-
-    :param refpath: str
-    :param names: list
-    :param converters: dict
-
-    :return: pd.DataFrame
-    """
-    df = pd.read_csv(refpath, header=None, names=names,
-                     converters=converters, encoding='utf-8')
-
-    return df
-
 
 def extract_text(filepath):
     """
@@ -124,23 +106,24 @@ def get_docwords(path, sntt, wdt, trim=None, **kwargs):
         yield tokenize_sent(sentence, wdt, **kwargs)
 
 
-def get_corpus(paths, sntt, wdt, **kwargs):
+def get_corpus(paths, sntt, wdt, trim=None, **kwargs):
     """
     Saca cada frase de cada documento en filepaths.
 
     :param paths: Series
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    **kwargs: (trim, wdlen, stops, alphas, fltr)
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
 
     :yield: list of str (palabras de una frase)
     """
     for path in paths:
-        for words in get_docwords(path, sntt, wdt, **kwargs):
+        for words in get_docwords(path, sntt, wdt, trim, **kwargs):
             yield words
 
 
-def get_phrased_sents(mo, path, sntt, wdt, **kwargs):
+def get_phrased_sents(mo, path, sntt, wdt, trim=None, **kwargs):
     """
     Transforma cada frase de un documento usando modelos de collocation.
 
@@ -148,14 +131,14 @@ def get_phrased_sents(mo, path, sntt, wdt, **kwargs):
     :param path: str
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    **kwargs: (trim, wdlen, stops, alphas, fltr)
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
 
     :yield: str (frase)
     """
     big = mo['big']
     trig = mo['trig']
-    quad = mo['quad']
-    sents = get_docwords(path, sntt, wdt, **kwargs)
-    transformed = quad[trig[big[sents]]]
+    sents = get_docwords(path, sntt, wdt, trim, **kwargs)
+    transformed = trig[big[sents]]
     for sent in transformed:
         yield ' '.join(sent)

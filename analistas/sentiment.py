@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import string
 import sys
 import time
 import warnings
@@ -31,11 +32,8 @@ def score_sentence(tokens, s1, s2):
     """
     fd = Counter(tokens)
 
-    wds1 = [c for w, c in fd.items() if any(w.startswith(s) for s in s1)]
-    emo1 = sum(wds1)
-
-    wds2 = [c for w, c in fd.items() if any(w.startswith(s) for s in s2)]
-    emo2 = sum(wds2)
+    emo1 = sum([c for w, c in fd.items() if w in s1])
+    emo2 = sum([c for w, c in fd.items() if w in s2])
 
     emosum = emo1 + emo2
     emodiff = emo1 - emo2
@@ -57,7 +55,7 @@ def score_sentence(tokens, s1, s2):
     return score, emosent
 
 
-def score_doc(path, ws, sntt, wdt, **kwargs):
+def score_doc(path, ws, sntt, wdt, stmr=None, trim=None, **kwargs):
     """
     Calcula sentimiento de documento en path.
 
@@ -65,7 +63,9 @@ def score_doc(path, ws, sntt, wdt, **kwargs):
     :param ws: dict
     :param sntt: Tokenizer
     :param wdt: WordPunctTokenizer
-    **kwargs: (trim, wdlen, stops, alphas, fltr)
+    :param stmr: SnowballStemmer or None
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
 
     :yield: tuple
     """
@@ -76,8 +76,11 @@ def score_doc(path, ws, sntt, wdt, **kwargs):
     result = {}
     r = []
 
-    for tokens in hp.get_docwords(path, sntt, wdt, **kwargs):
+    for tokens in hp.get_docwords(path, sntt, wdt, trim, **kwargs):
         if tokens:
+            if stmr:
+                tokens = [stmr.stem(w) for w in tokens]
+
             score, emosent = score_sentence(tokens, s1, s2)
             r.append((score, emosent, 1))
 
@@ -107,8 +110,7 @@ def score_doc(path, ws, sntt, wdt, **kwargs):
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    ahora = datetime.datetime.now()
-    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
+    corrida = "{:%Y-%m-%d-%H%M%S}".format(datetime.datetime.now())
     wdlist = sys.argv[1]
 
     dir_curr = os.path.abspath('.')
@@ -120,30 +122,30 @@ def main():
     logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(format=log_format,
-                        datefmt=log_datefmt,
-                        level=logging.INFO,
-                        filename=logfile,
-                        filemode='w')
+    logging.basicConfig(format=log_format, datefmt=log_datefmt,
+                        level=logging.INFO, filename=logfile, filemode='w')
 
     punkt = os.path.join('tokenizers', 'punkt', 'spanish.pickle')
     sntt = nltk.data.load(punkt)
     wdt = WordPunctTokenizer()
 
+    punct = set(string.punctuation)
     custom = set(l.strip() for l in open('custom.txt', encoding='utf-8'))
     span = set(stopwords.words('spanish'))
-    stops = span.union(custom)
+    stops = span.union(custom).union(punct)
+
+    stmr = None
 
     with open(wdlist, encoding='utf-8') as infile:
         banrep = json.load(infile, encoding='utf-8')
 
     if len(sys.argv) == 3:
         logging.info('Usando stems de listas de palabras...')
-        stmmr = SnowballStemmer('spanish')
+        stmr = SnowballStemmer('spanish')
         stems = {}
         for cat in banrep.keys():
             words = banrep[cat]
-            stems[cat] = set([stmmr.stem(w) for w in words])
+            stems[cat] = set([stmr.stem(w) for w in words])
 
         banrep = stems.copy()
 
@@ -154,7 +156,9 @@ def main():
     if not os.path.isfile(refpath):
         refpath = os.path.join(dir_input, 'procesados.csv')
 
-    procesados = hp.load_reference(refpath, names, converter)
+    procesados = pd.read_csv(refpath, header=None, names=names,
+                             converters=converter, encoding='utf-8')
+
     procesados['creacion'] = pd.to_datetime(procesados['creacion'],
                                             errors='coerce', utc=True,
                                             infer_datetime_format=True)
@@ -176,9 +180,8 @@ def main():
             logstr = 'Calculando sentimiento de docs en {}'.format(grupo)
             logging.info(logstr)
 
-            resu = paths.apply(score_doc, args=(banrep, sntt, wdt),
-                               trim=0.1, wdlen=3,
-                               stops=stops, alphas=True, fltr=5)
+            resu = paths.apply(score_doc, args=(banrep, sntt, wdt, stmr, 0.1),
+                               wdlen=3, stops=stops, alphas=True, fltr=5)
 
             new = resu.apply(pd.Series)
             resultado = pd.concat([df, new], axis=1)
