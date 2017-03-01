@@ -92,7 +92,7 @@ def score_doc(path, ws, sntt, wdt, stmr=None, trim=None, **kwargs):
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     result[f] = np.nanmean(res[i])
 
-                    assert (result[f] <= 2 or type(result[f]) == np.float64)
+                assert (result[f] <= 2 or type(result[f]) == np.float64)
             else:
                 result[f] = np.nansum(res[i])
 
