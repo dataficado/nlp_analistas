@@ -2,12 +2,12 @@
 """Modulo para extraer texto de archivos binarios."""
 from pathlib import PurePath
 import csv
-import datetime
 import json
 import logging
 import os
 import sys
 import time
+import warnings
 
 from tika import parser
 from tika import language
@@ -31,44 +31,23 @@ def parse_with_tika(filepath, server='http://localhost:9998'):
     return dict(contenido=contenido, metadata=metadata, idioma=idioma)
 
 
-def process_file(filepath, outpath, procfile):
+def include_as_processed(pfile, data):
     """
-    Hacer parsing de archivo en filepath, guardando resultado en outfile.
+    Modifica archivo en pfile para registrar procesamiento de data.
 
-    :param filepath: str
-    :param outpath: str
-    :param procfile: str
+    :param pfile: str
+    :param data: str
 
     :return: None
     """
-    try:
-        info = parse_with_tika(filepath)
-    except Exception as e:
-        logging.info('Imposible extraer info de {} : {}'.format(filepath, e))
-        info = {}
-
-    if info:
-        idioma = info.get('idioma')
-        metadata = info.get('metadata')
-        if metadata:
-            creacion = metadata.get('Creation-Date')
-        else:
-            creacion = ''
-
-        with open(outpath, "w", encoding='utf-8') as out:
-            json.dump(info, out, ensure_ascii=False)
-
-        with open(procfile, 'a', newline='', encoding='utf-8') as out:
-            writer = csv.writer(out, delimiter=',')
-            datos = [filepath, outpath, idioma, creacion]
-            writer.writerow(datos)
+    with open(pfile, 'a', newline='', encoding='utf-8') as out:
+        writer = csv.writer(out, delimiter=',')
+        writer.writerow(data)
 
 
 def main():
     """Unificar en main para poder ejecutar despues desde otro script."""
     inicio = time.time()
-    ahora = datetime.datetime.now()
-    corrida = "{:%Y-%m-%d-%H%M%S}".format(ahora)
 
     dir_curr = os.path.abspath('.')
     dir_input = sys.argv[1]
@@ -76,20 +55,17 @@ def main():
     dir_input_len = len(dir_input_parts.parts)
 
     dir_output = os.path.join(dir_curr, 'extraction')
-    dir_logs = os.path.join(dir_output, 'logs')
-    os.makedirs(dir_logs, exist_ok=True)
 
-    logfile = os.path.join(dir_logs, '{}.log'.format(corrida))
     log_format = '%(asctime)s : %(levelname)s : %(message)s'
     log_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(format=log_format, datefmt=log_datefmt,
-                        level=logging.INFO, filename=logfile, filemode='w')
+    logging.basicConfig(format=log_format,
+                        datefmt=log_datefmt, level=logging.INFO)
 
     bien = 0
     mal = 0
 
     formatos = ('.pdf', '.txt', '.doc', '.docx', '.ppt', '.pptx')
-    procfile = os.path.join(dir_output, 'procesados.csv')
+    pfile = os.path.join(dir_output, 'procesados.csv')
 
     for dirpath, dirnames, filenames in os.walk(dir_input):
         folders = PurePath(dirpath)
@@ -117,18 +93,38 @@ def main():
 
                 if not presente:
                     try:
-                        process_file(filepath, outfile, procfile)
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore",
+                                                  category=RuntimeWarning)
+                            info = parse_with_tika(filepath)
                         bien += 1
                     except Exception as e:
+                        info = {}
                         mal += 1
                         logstr = 'Nada guardado para {}:{}'.format(filename, e)
                         logging.info(logstr)
 
+                    if info:
+                        idioma = info.get('idioma')
+                        metadata = info.get('metadata')
+
+                        if metadata:
+                            creacion = metadata.get('Creation-Date')
+                        else:
+                            creacion = ''
+
+                        with open(outfile, "w", encoding='utf-8') as out:
+                            json.dump(info, out, ensure_ascii=False)
+
+                        datos = filepath, outfile, idioma, creacion
+
+                        include_as_processed(pfile=pfile, data=datos)
+
     fin = time.time()
     secs = fin - inicio
 
-    logging.info(
-        '{m:.2f} mins, {e} OK y {p} mal'.format(m=secs / 60, e=bien, p=mal))
+    logstr = '{:.2f} mins, {} OK y {} mal'.format(secs / 60, bien, mal)
+    logging.info(logstr)
 
 
 if __name__ == '__main__':
