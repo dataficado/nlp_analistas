@@ -11,6 +11,8 @@ from gensim import corpora
 from gensim.models import Phrases
 from gensim.models.ldamodel import LdaModel
 from gensim.models.phrases import Phraser
+from nltk import FreqDist
+from nltk import ngrams
 from nltk.corpus import stopwords
 from nltk.tokenize import WordPunctTokenizer
 import nltk.data
@@ -20,28 +22,57 @@ import pandas as pd
 import helpers as hp
 
 
-def all_phrased_words(path, mo, sntt, wdt, trim=None, **kwargs):
+def doc_ngrams(words, n=2):
     """
-    Transforma documento en path en BOW.
+    Transforma BOW de documento en n-gramas.
 
-    :param path: str
-    :param mo: dict
-    :param sntt: Tokenizer
-    :param wdt: WordPunctTokenizer
-    :param trim: float
-    **kwargs: (wdlen, stops, alphas, fltr)
+    :param words: list of str (palabras de un documento)
+    :param n: int
 
-    :yield: list of str (palabras de un documento)
+    :return: list of str (n-gramas de un documento)
     """
     tokens = []
+    coll = FreqDist(item for item in ngrams(words, n))
+    fd = {' '.join(w): c for w, c in coll.items()}
 
-    # params de get_phrased_sents deben ser iguales a lo usado en phrases
-    # incluir si se quiere algo diferente a los kwargs de tokenize_sent
-    for sent in hp.get_phrased_sents(mo, path, sntt, wdt, trim, **kwargs):
-        words = hp.tokenize_sent(sent, wdt, **kwargs)
-        tokens.extend(words)
+    for word, count in fd.items():
+        tokens.extend([word] * count)
 
     return tokens
+
+
+def create_models(iter_of_bows, outdir, mask, ng):
+    """
+    Crea y almacena modelos Dictionary, BOWcorpus, LDA
+
+    :param iter_of_bows: list or pd.Series
+    :param outdir: str (directorio de salida)
+    :param mask: str (label de tipo de sentimiento)
+    :param ng: str (uni, bi, tri, phrase)
+
+    :return: None
+    """
+    diction = corpora.Dictionary(toks for toks in iter_of_bows)
+    unids = [tokid for tokid, freq in diction.dfs.items() if freq == 1]
+    diction.filter_tokens(unids)  # remove words that appear only once
+    diction.compactify()
+    strdict = 'dict-{}-{}gram.dict'.format(mask, ng)
+    dictpath = os.path.join(outdir, strdict)
+    diction.save(dictpath)
+
+    bow = [diction.doc2bow(toks) for toks in iter_of_bows]
+    strbow = 'bow-{}-{}gram.mm'.format(mask, ng)
+    bowmm = os.path.join(outdir, strbow)
+    corpora.MmCorpus.serialize(bowmm, bow)
+
+    #  LDA transformations
+    #  10 passes, no online updates, and i topics
+    params = dict(id2word=diction, update_every=0, passes=10)
+    for i in (5, 10, 20, 40):
+        lda = LdaModel(bow, num_topics=i, **params)
+        strlda = 'model-{}-{}-{}gram.lda'.format(i, mask, ng)
+        ldapath = os.path.join(outdir, strlda)
+        lda.save(ldapath)
 
 
 def main():
@@ -92,8 +123,8 @@ def main():
 
     sentimiento = sentimiento[t0:t1]
     n1 = len(sentimiento.index)
-    logging.info('{} docs fuera de periodo'.format(n0 - n1))
-    logging.info('{} docs dentro de periodo'.format(n1))
+    strlog = '{} docs dentro de periodo y {} fuera'.format(n1, (n0 - n1))
+    logging.info(strlog)
 
     if nc == 4:
         sentimiento['tipo'] = np.where(sentimiento['score'] > 0, 'mejora',
@@ -104,8 +135,9 @@ def main():
         sentimiento = sentimiento[masktipo]
 
         n2 = len(sentimiento.index)
-        logging.info('Se descartan {} docs no tipo {}'.format((n1 - n2), tipo))
-        logging.info('Se mantienen {} docs tipo {}'.format(n2, tipo))
+        out = n1 - n2
+        strlog = 'Se mantienen {} tipo {} y descartan {}'.format(n2, tipo, out)
+        logging.info(strlog)
 
     grouped = sentimiento.groupby(['idioma'])
     for grupo, df in grouped:
@@ -124,29 +156,22 @@ def main():
                 ph_model = Phraser(model)
                 mods[m] = ph_model
 
-            docwords = paths.apply(all_phrased_words,
+            docwords = paths.apply(hp.phrased_words,
                                    args=(mods, sntt, wdt, 0.1),
                                    wdlen=3, stops=stops, alphas=True, fltr=5)
 
-            diction = corpora.Dictionary(toks for toks in docwords)
-            unids = [tokid for tokid, freq in diction.dfs.items() if freq == 1]
-            diction.filter_tokens(unids)  # remove words that appear only once
-            diction.compactify()
-            dictpath = os.path.join(savepath, 'dict-{}.dict'.format(tipo))
-            diction.save(dictpath)
+            uniwords = paths.apply(hp.simple_words,
+                                   args=(sntt, wdt, 0.1),
+                                   wdlen=3, stops=stops, alphas=True, fltr=5)
 
-            bow = [diction.doc2bow(toks) for toks in docwords]
-            bowmm = os.path.join(savepath, 'bow-{}.mm'.format(tipo))
-            corpora.MmCorpus.serialize(bowmm, bow)
+            biwords = uniwords.apply(doc_ngrams, n=2)
+            triwords = uniwords.apply(doc_ngrams, n=3)
 
-            #  LDA transformations
-            #  10 passes, no online updates, and n topics
-            params = dict(id2word=diction, update_every=0, passes=10)
-            for n in (5, 10, 20, 40):
-                lda = LdaModel(bow, num_topics=n, **params)
-                ldapath = os.path.join(savepath,
-                                       'model-{}-{}.lda'.format(n, tipo))
-                lda.save(ldapath)
+            # modelos usando frased-words, unigramas, bigramas, trigramas
+            create_models(docwords, savepath, tipo, 'phrase')
+            create_models(uniwords, savepath, tipo, 'uni')
+            create_models(biwords, savepath, tipo, 'bi')
+            create_models(triwords, savepath, tipo, 'tri')
 
     fin = time.time()
     secs = fin - inicio

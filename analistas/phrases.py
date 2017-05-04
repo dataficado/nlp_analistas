@@ -75,14 +75,6 @@ def main():
             trig = Phrases(big[corpus])
             trigpath = os.path.join(savepath, 'trig')
             trig.save(trigpath)
-            trig = Phraser(trig)
-
-            corpus = hp.get_corpus(paths, sntt, wdt, trim=0.1,
-                                   wdlen=3, stops=stops, alphas=True, fltr=5)
-
-            quad = Phrases(trig[big[corpus]])
-            quadpath = os.path.join(savepath, 'quad')
-            quad.save(quadpath)
 
     fin = time.time()
     secs = fin - inicio

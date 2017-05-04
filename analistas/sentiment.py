@@ -76,7 +76,7 @@ def score_doc(path, ws, sntt, wdt, stmr=None, trim=None, **kwargs):
     result = {}
     r = []
 
-    for tokens in hp.get_docwords(path, sntt, wdt, trim, **kwargs):
+    for tokens in hp.get_tokenized_sents(path, sntt, wdt, trim, **kwargs):
         if tokens:
             if stmr:
                 tokens = [stmr.stem(w) for w in tokens]

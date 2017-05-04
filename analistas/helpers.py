@@ -88,7 +88,7 @@ def tokenize_sent(sentence, wdt, wdlen=0, stops=None, alphas=False, fltr=0):
     return words
 
 
-def get_docwords(path, sntt, wdt, trim=None, **kwargs):
+def get_tokenized_sents(path, sntt, wdt, trim=None, **kwargs):
     """
     Saca cada frase de un documento.
 
@@ -119,7 +119,7 @@ def get_corpus(paths, sntt, wdt, trim=None, **kwargs):
     :yield: list of str (palabras de una frase)
     """
     for path in paths:
-        for words in get_docwords(path, sntt, wdt, trim, **kwargs):
+        for words in get_tokenized_sents(path, sntt, wdt, trim, **kwargs):
             yield words
 
 
@@ -138,7 +138,52 @@ def get_phrased_sents(mo, path, sntt, wdt, trim=None, **kwargs):
     """
     big = mo['big']
     trig = mo['trig']
-    sents = get_docwords(path, sntt, wdt, trim, **kwargs)
+    sents = get_tokenized_sents(path, sntt, wdt, trim, **kwargs)
     transformed = trig[big[sents]]
     for sent in transformed:
         yield ' '.join(sent)
+
+
+def phrased_words(path, mo, sntt, wdt, trim=None, **kwargs):
+    """
+    Transforma documento en path en phrased BOW.
+
+    :param path: str
+    :param mo: dict
+    :param sntt: Tokenizer
+    :param wdt: WordPunctTokenizer
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
+
+    :return: list of str (palabras de un documento)
+    """
+    tokens = []
+
+    # params de get_phrased_sents deben ser iguales a lo usado en phrases
+    # incluir si se quiere algo diferente a los kwargs de tokenize_sent
+    for sent in get_phrased_sents(mo, path, sntt, wdt, trim, **kwargs):
+        words = tokenize_sent(sent, wdt, **kwargs)
+        tokens.extend(words)
+
+    return tokens
+
+
+def simple_words(path, sntt, wdt, trim=None, **kwargs):
+    """
+    Transforma documento en path en BOW.
+
+    :param path: str
+    :param sntt: Tokenizer
+    :param wdt: WordPunctTokenizer
+    :param trim: float
+    **kwargs: (wdlen, stops, alphas, fltr)
+
+    :return: list of str (palabras de un documento)
+    """
+    tokens = []
+
+    for words in get_tokenized_sents(path, sntt, wdt, trim, **kwargs):
+        tokens.extend(words)
+
+    return tokens
+

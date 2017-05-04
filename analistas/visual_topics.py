@@ -11,25 +11,26 @@ import pyLDAvis
 import pyLDAvis.gensim as gvis
 
 
-def topic_data(n, tipo, dirin):
+def topic_data(n, tipo, dirin, ng):
     """
     Prepara data para visualizacion de topicos
 
     :param n: int (numero de topicos)
     :param tipo: str (label de tipo de sentimiento)
     :param dirin: str (directorio de entrada)
+    :param ng: str (uni, bi, tri, phrase)
 
     :return: PreparedData
     """
-    dictf = os.path.join(dirin, 'dict-{}.dict'.format(tipo))
+    dictf = os.path.join(dirin, 'dict-{}-{}gram.dict'.format(tipo, ng))
     dictionary = corpora.Dictionary.load(dictf)
     strfmt = 'Diccionario con {} tokens cargado'.format(len(dictionary.keys()))
     logging.info(strfmt)
 
-    bowmm = os.path.join(dirin, 'bow-{}.mm'.format(tipo))
+    bowmm = os.path.join(dirin, 'bow-{}-{}gram.mm'.format(tipo, ng))
     bowcorpus = corpora.MmCorpus(bowmm)
 
-    ldaf = os.path.join(dirin, 'model-{}-{}.lda'.format(n, tipo))
+    ldaf = os.path.join(dirin, 'model-{}-{}-{}gram.lda'.format(n, tipo, ng))
     ldamodel = LdaModel.load(ldaf)
 
     data = gvis.prepare(ldamodel, bowcorpus, dictionary)
@@ -62,10 +63,11 @@ def main():
 
     # visualizacion de topicos
     for n in (5, 10, 20, 40):
-        data = topic_data(n, tipo, dir_topi)
-        strfmt = 'topics-{}-{}.html'.format(n, tipo)
-        html = os.path.join(dir_output, strfmt)
-        pyLDAvis.save_html(data, html)
+        for ng in ('uni', 'bi', 'tri', 'phrase'):
+            data = topic_data(n=n, tipo=tipo, dirin=dir_topi, ng=ng)
+            strfmt = 'topics-{}-{}-{}gram.html'.format(n, tipo, ng)
+            html = os.path.join(dir_output, strfmt)
+            pyLDAvis.save_html(data, html)
 
 
 if __name__ == '__main__':
