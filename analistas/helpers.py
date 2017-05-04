@@ -186,4 +186,3 @@ def simple_words(path, sntt, wdt, trim=None, **kwargs):
         tokens.extend(words)
 
     return tokens
-
