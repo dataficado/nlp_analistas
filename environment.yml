@@ -1,5 +1,6 @@
 name: nlp-analistas
 channels:
+- anaconda-fusion
 - defaults
 dependencies:
 - appnope=0.1.0=py35_0
@@ -98,5 +99,4 @@ dependencies:
   - textstat==0.3.1
   - tika==1.13.1
   - wordcloud==1.2.1
-prefix: /Users/tombito/anaconda/envs/nlp-analistas
 
