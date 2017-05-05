@@ -9,6 +9,7 @@
 *.projection
 *.tfidf
 *.vocab
+*.html
 big
 trig
 quad
